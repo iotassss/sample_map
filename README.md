@@ -1,2 +1,3 @@
 # Sample Map
 地図系のアプリケーションを作成するためのテスト
+OpenStreetMap

@@ -1,0 +1,109 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Leaflet + OSM + Nominatim + Emoji Marker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  body {
+    margin: 0;
+  }
+
+  #map {
+    height: 100vh;
+  }
+
+  #q {
+    position: fixed;
+    z-index: 1000;
+    left: 10px;
+    top: 10px;
+    width: 260px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+  }
+</style>
+
+<input id="q" placeholder="場所を検索（例: 東京駅）" />
+<div id="map"></div>
+
+<script>
+  // 地図初期化（暫定は東京駅）
+  const map = L.map('map').setView([35.6812, 139.7671], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  let marker;
+
+  // 検索（ジオコーディング）
+  async function search(q) {
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.search = new URLSearchParams({
+      q, format: 'json', addressdetails: 1, limit: 1, 'accept-language': 'ja'
+    });
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'demo/0.1', 'Accept': 'application/json' }
+    });
+    const [hit] = await res.json();
+    if (!hit) return alert('見つかりませんでした');
+    const lat = parseFloat(hit.lat), lon = parseFloat(hit.lon);
+    if (marker) marker.remove();
+    marker = L.marker([lat, lon]).addTo(map).bindPopup(hit.display_name).openPopup();
+    map.setView([lat, lon], 16);
+  }
+
+  // 現在地取得（許可されれば初期表示を現在地へ）
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      L.marker([lat, lon]).addTo(map).bindPopup('現在地').openPopup();
+      map.setView([lat, lon], 15);
+    }, () => {/* サイレント失敗 */ });
+  }
+
+  // クリックで座標＋住所取得（逆ジオコーディング）
+  map.on('click', async (e) => {
+    const { lat, lng } = e.latlng;
+    let popupText = `lat:${lat.toFixed(6)}, lon:${lng.toFixed(6)}`;
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse');
+      url.search = new URLSearchParams({
+        lat, lon: lng, format: 'json', addressdetails: 1, 'accept-language': 'ja'
+      });
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'demo/0.1', 'Accept': 'application/json' }
+      });
+      const data = await res.json();
+      if (data?.display_name) popupText += `\n${data.display_name}`;
+    } catch (err) {
+      console.error(err);
+    }
+    L.popup().setLatLng(e.latlng).setContent(popupText).openOn(map);
+  });
+
+  // 検索入力イベント
+  document.getElementById('q').addEventListener('keydown', e => {
+    if (e.key === 'Enter') search(e.target.value);
+  });
+
+  // ------ 顔文字アイコン（DivIcon）を指定座標に常時設置 ------
+  const faceIcon = L.divIcon({
+    html: '<div style="font-size:32px; line-height:32px">😃</div>',
+    className: '',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16] // 中央基準
+  });
+
+  const faceLat = 35.632396;
+  const faceLon = 139.884281;
+
+  L.marker([faceLat, faceLon], { icon: faceIcon })
+    .addTo(map)
+    .bindPopup('顔文字アイコン（指定位置）');
+</script>
