@@ -13,7 +13,54 @@
     height: 100vh;
   }
 
-  #q {
+  /* 顔文字選択ポップアップのスタイル */
+  .emoji-popup {
+    position: absolute;
+    background: white;
+    border: 2px solid #007cff;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+  }
+
+  .emoji-popup .emoji-option {
+    display: inline-block;
+    padding: 8px 10px;
+    margin: 2px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 24px;
+    transition: all 0.2s;
+  }
+
+  .emoji-popup .emoji-option:hover {
+    background: #e6f3ff;
+    border-color: #007cff;
+    transform: scale(1.1);
+  }
+
+  .emoji-popup .cancel-btn {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 4px;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+  }
+
+  .emoji-popup .cancel-btn:hover {
+    background: #e0e0e0;
+  }
+
+  /* #q {
     position: fixed;
     z-index: 1000;
     left: 10px;
@@ -24,11 +71,46 @@
     border: 1px solid #ccc;
     background: #fff;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
-  }
+  } */
 </style>
-
-<input id="q" placeholder="場所を検索（例: 東京駅）" />
+<div style="display: flex; align-items: center; padding: 10px; background: #f0f0f0; border-bottom: 1px solid #ccc;">
+  <div style="flex: 1;">
+    <h1 style="margin: 0;">
+      Leaflet + OSM + Nominatim + Emoji Marker
+    </h1>
+    <p style="margin: 0 0 1em; font-size: 12px; color: #333;">
+      このデモでは、Leafletを使用して地図を表示し、OSMとNominatimを利用して地名検索を行います。また、顔文字アイコンを地図上に表示します。
+    </p>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-right: 20px;">
+    <input id="q" placeholder="場所を検索（例: 東京駅）" />
+    <div style="display: flex; gap: 5px; align-items: center;">
+      <span style="font-size: 12px; color: #666;">顔文字選択:</span>
+      <button class="emoji-btn" data-emoji="😃" style="padding: 5px 8px; border: 2px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 20px;">😃</button>
+      <button class="emoji-btn" data-emoji="😊" style="padding: 5px 8px; border: 2px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 20px;">😊</button>
+      <button class="emoji-btn" data-emoji="🤔" style="padding: 5px 8px; border: 2px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 20px;">🤔</button>
+      <button class="emoji-btn" data-emoji="🎯" style="padding: 5px 8px; border: 2px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 20px;">🎯</button>
+      <button class="emoji-btn" data-emoji="⭐" style="padding: 5px 8px; border: 2px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 20px;">⭐</button>
+      <button class="emoji-btn" data-emoji="❤️" style="padding: 5px 8px; border: 2px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 20px;">❤️</button>
+    </div>
+  </div>
+</div>
 <div id="map"></div>
+
+<!-- 顔文字選択ポップアップ -->
+<div id="emojiPopup" class="emoji-popup">
+  <div class="emoji-option" data-emoji="😃">😃</div>
+  <div class="emoji-option" data-emoji="😊">😊</div>
+  <div class="emoji-option" data-emoji="🤔">🤔</div>
+  <div class="emoji-option" data-emoji="🎯">🎯</div>
+  <div class="emoji-option" data-emoji="⭐">⭐</div>
+  <div class="emoji-option" data-emoji="❤️">❤️</div>
+  <div class="emoji-option" data-emoji="🌟">🌟</div>
+  <div class="emoji-option" data-emoji="🏠">🏠</div>
+  <div class="emoji-option" data-emoji="🍕">🍕</div>
+  <div class="emoji-option" data-emoji="🎉">🎉</div>
+  <div class="cancel-btn">キャンセル</div>
+</div>
 
 <script>
   // 地図初期化（暫定は東京駅）
@@ -39,6 +121,85 @@
   }).addTo(map);
 
   let marker;
+  let selectedEmoji = '😃'; // デフォルトの選択された顔文字
+  let clickedLatLng = null; // クリック位置を保存
+  let addressInfo = ''; // 住所情報を保存
+
+  // 顔文字選択ポップアップの管理
+  const emojiPopup = document.getElementById('emojiPopup');
+
+  // 顔文字選択ポップアップを表示
+  function showEmojiPopup(x, y, lat, lng) {
+    clickedLatLng = { lat, lng };
+    emojiPopup.style.left = x + 'px';
+    emojiPopup.style.top = y + 'px';
+    emojiPopup.style.display = 'block';
+  }
+
+  // 顔文字選択ポップアップを隠す
+  function hideEmojiPopup() {
+    emojiPopup.style.display = 'none';
+    clickedLatLng = null;
+    addressInfo = '';
+  }
+
+  // 顔文字選択ポップアップのイベントリスナー
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('emoji-option')) {
+      const selectedEmoji = e.target.getAttribute('data-emoji');
+      if (clickedLatLng) {
+        placeEmojiMarker(clickedLatLng.lat, clickedLatLng.lng, selectedEmoji);
+      }
+      hideEmojiPopup();
+    } else if (e.target.classList.contains('cancel-btn')) {
+      hideEmojiPopup();
+    } else if (!emojiPopup.contains(e.target)) {
+      // ポップアップ外をクリックした場合は閉じる
+      if (emojiPopup.style.display === 'block') {
+        hideEmojiPopup();
+      }
+    }
+  });
+
+  // 顔文字マーカーを設置する関数
+  function placeEmojiMarker(lat, lng, emoji) {
+    const faceIcon = createFaceIcon(emoji);
+    let popupContent = `${emoji} 顔文字アイコン\nlat:${lat.toFixed(6)}, lon:${lng.toFixed(6)}`;
+    if (addressInfo) {
+      popupContent += `\n${addressInfo}`;
+    }
+
+    L.marker([lat, lng], { icon: faceIcon })
+      .addTo(map)
+      .bindPopup(popupContent)
+      .openPopup();
+  }
+
+  // 顔文字選択機能
+  document.addEventListener('DOMContentLoaded', () => {
+    const emojiButtons = document.querySelectorAll('.emoji-btn');
+
+    // デフォルトで最初のボタンを選択状態に
+    emojiButtons[0].style.borderColor = '#007cff';
+    emojiButtons[0].style.backgroundColor = '#e6f3ff';
+
+    emojiButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // すべてのボタンをリセット
+        emojiButtons.forEach(b => {
+          b.style.borderColor = '#ddd';
+          b.style.backgroundColor = 'white';
+        });
+
+        // 選択されたボタンをハイライト
+        btn.style.borderColor = '#007cff';
+        btn.style.backgroundColor = '#e6f3ff';
+
+        // 選択された顔文字を更新
+        selectedEmoji = btn.getAttribute('data-emoji');
+      });
+    });
+  });
 
   // 検索（ジオコーディング）
   async function search(q) {
@@ -67,10 +228,21 @@
     }, () => {/* サイレント失敗 */ });
   }
 
-  // クリックで座標＋住所取得（逆ジオコーディング）
+  // 顔文字アイコン定義（選択された顔文字を使用）
+  function createFaceIcon(emoji) {
+    return L.divIcon({
+      html: `<div style="font-size:32px; line-height:32px">${emoji}</div>`,
+      className: '',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16] // 中央基準
+    });
+  }
+
+  // クリックで顔文字選択ポップアップを表示
   map.on('click', async (e) => {
     const { lat, lng } = e.latlng;
-    let popupText = `lat:${lat.toFixed(6)}, lon:${lng.toFixed(6)}`;
+
+    // 住所情報を取得（非同期）
     try {
       const url = new URL('https://nominatim.openstreetmap.org/reverse');
       url.search = new URLSearchParams({
@@ -80,11 +252,31 @@
         headers: { 'User-Agent': 'demo/0.1', 'Accept': 'application/json' }
       });
       const data = await res.json();
-      if (data?.display_name) popupText += `\n${data.display_name}`;
+      addressInfo = data?.display_name || '';
     } catch (err) {
       console.error(err);
+      addressInfo = '';
     }
-    L.popup().setLatLng(e.latlng).setContent(popupText).openOn(map);
+
+    // 画面座標を取得してポップアップを表示
+    const point = map.latLngToContainerPoint(e.latlng);
+    const mapRect = map.getContainer().getBoundingClientRect();
+
+    // ポップアップが画面外に出ないように調整
+    let popupX = mapRect.left + point.x;
+    let popupY = mapRect.top + point.y;
+
+    const popupWidth = 240; // ポップアップの幅（推定）
+    const popupHeight = 120; // ポップアップの高さ（推定）
+
+    if (popupX + popupWidth > window.innerWidth) {
+      popupX = window.innerWidth - popupWidth - 10;
+    }
+    if (popupY + popupHeight > window.innerHeight) {
+      popupY = popupY - popupHeight - 20;
+    }
+
+    showEmojiPopup(popupX, popupY, lat, lng);
   });
 
   // 検索入力イベント
@@ -93,17 +285,10 @@
   });
 
   // ------ 顔文字アイコン（DivIcon）を指定座標に常時設置 ------
-  const faceIcon = L.divIcon({
-    html: '<div style="font-size:32px; line-height:32px">😃</div>',
-    className: '',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16] // 中央基準
-  });
-
   const faceLat = 35.632396;
   const faceLon = 139.884281;
 
-  L.marker([faceLat, faceLon], { icon: faceIcon })
+  L.marker([faceLat, faceLon], { icon: createFaceIcon('😃') })
     .addTo(map)
     .bindPopup('顔文字アイコン（指定位置）');
 </script>
